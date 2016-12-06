@@ -1,4 +1,223 @@
-int int main(int argc, char const *argv[]) {
-  /* code */
-  return 0;
+#include <dirent.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
+#include <time.h>
+#include <getopt.h>
+
+#define GREEN "\033[32m"
+#define YELLOW    "\033[33m"
+#define DEFAULT  "\033[0m"
+#define BUF_SIZE 1024
+#define handle_error(msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+int c = -1;
+int fd,fc,size, size2;
+char buf[BUF_SIZE];
+char buf2[BUF_SIZE];
+struct linux_dirent *d;
+struct linux_dirent *d2;
+int bpos;
+int bpos2;
+char d_type;
+char errno;
+
+
+void check_directory();
+
+
+struct stat sb;
+
+struct linux_dirent {
+    unsigned long  d_ino;     /* Inode number */
+    unsigned long  d_off;     /* Offset to next linux_dirent */
+    unsigned short d_reclen;  /* Length of this linux_dirent */
+    char           d_name[];  /* Filename (null-terminated) */
+
+};
+
+struct option longopts [] = {
+  {"all", no_argument , NULL , 'a' },
+  {"long", no_argument , NULL , 'l' },
+  {"recursive", no_argument , NULL , 'R' },
+  {"help", no_argument , NULL , 'h' },
+  { 0, 0, 0, 0 }
+};
+
+int main(int argc, char *argv[]) {
+  int a = 0 ;
+  int l = 0 ;
+  int r = 0 ;
+  int h = 0 ;
+  int fd = 0 ;
+  int fd2 =0 ;
+
+  while ((c = getopt_long(argc, argv, "alRh", longopts, NULL)) != -1) {
+    switch (c) {
+    case 'a':
+      a = 1;
+      break;
+
+    case 'l':
+      l = 1;
+      break;
+
+    case'R':
+      r = 1;
+      break;
+
+    case'h':
+      printf("\nThis command list information about the files (the current directory by default)\n\n"
+             "  ----- Options -----\n" \
+             "  -r\tList subdirectories recursively.\n" \
+             "  -a\tDo not hide entries starting with.\n" \
+             "  -l\tDisplay more informations about the files.\n\n");
+      exit(EXIT_SUCCESS);
+      break;
+
+    case '?':
+      if (isprint (optopt))
+        fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+      else
+        fprintf (stderr, "Unknown option character! `\\x%x'.\n", optopt);
+
+      return 1;
+
+    default:
+      return 1;
+    }
+  }
+  if ((argc - optind) == 0) {
+    fd = open(".", O_RDONLY | O_DIRECTORY);
+    if (fd == -1)
+      handle_error("open");
+  }
+
+  fd = open(".", O_RDONLY | O_DIRECTORY);
+  if (fd == -1)
+    handle_error("open");
+
+  while (1) {
+
+    size = syscall(SYS_getdents, fd, buf, BUF_SIZE);
+
+    if (size == -1)
+      handle_error("getdents");
+
+    if (size == 0)
+      break;
+
+    for (bpos = 0; bpos < size; ) {
+      d = (struct linux_dirent *) (buf + bpos);
+      d_type = *(buf + bpos + d->d_reclen - 1);
+
+      if (*d->d_name != '.' & a != 1 & l != 1 & r!=1) {
+
+        if (d_type == DT_DIR){
+          printf(YELLOW"%10s"DEFAULT, d->d_name);
+        }
+        else{
+          printf(GREEN"%10s"DEFAULT, d->d_name);
+        }
+
+      }
+
+      if (a==1){
+        if (d_type == DT_DIR){
+          printf(YELLOW"%10s"DEFAULT, d->d_name);
+        }
+        else{
+          printf(GREEN"%10s"DEFAULT, d->d_name);
+        }
+      }
+
+      if (*d->d_name != '.' & l == 1) {
+
+        if (stat(d->d_name, &sb) == -1) {
+          perror("stat");
+          exit(EXIT_FAILURE);
+        }
+        char info [] = {'-','-','-','-','-','-','-','-','-','-','\0'};
+
+        switch (sb.st_mode & S_IFMT) {
+          case S_IFDIR:  info[0] = 'd';
+          case S_IRUSR:  info[1] = 'r';
+          case S_IWUSR:  info[2] = 'w';
+          case S_IXUSR:  info[3] = 'x';
+          case S_IRGRP:  info[4] = 'r';
+          case S_IWGRP:  info[5] = 'w';
+          case S_IXGRP: info[6] = 'x';
+          case S_IROTH:  info[7] = 'r';
+          case S_IWOTH:  info[8] = 'w';
+          case S_IXOTH: info[9] = 'x'; break;
+        }
+
+        if (d_type == DT_DIR){
+          printf(YELLOW"%10s"DEFAULT, d->d_name);
+        }
+        else{
+          printf(GREEN"%10s"DEFAULT, d->d_name);
+        }
+        printf ("%12s", info);
+        printf("     %ld   %ld",(long) sb.st_uid, (long) sb.st_gid);
+        printf("%10lld",(long long) sb.st_size);
+        printf("%30s", ctime(&sb.st_mtime));
+
+      }
+
+      if (*d->d_name != '.' & r == 1) {
+        if (d_type != DT_DIR){
+          printf(GREEN"%10s\n"DEFAULT, d->d_name);
+        }
+        else{
+          printf(YELLOW"    %s\n"DEFAULT, d->d_name);
+          printf("-----------\n");
+          check_directory();
+        }
+
+
+      }
+      bpos += d->d_reclen;
+    }
+    printf("\n" );
+    exit(EXIT_SUCCESS);
+    close(fd);
+  }
+
+}
+
+void check_directory(int fd2, int size2,int bpos2) {
+  fd2 = open(d->d_name, O_RDONLY | O_DIRECTORY);
+
+  if (fd2 == -1)
+    handle_error("open");
+
+  size2 = syscall(SYS_getdents, fd2, buf2, BUF_SIZE);
+
+  if (size2 == -1)
+    handle_error("getdents");
+
+  for (bpos2 = 0; bpos2 < size2; ) {
+    d2 = (struct linux_dirent *) (buf2 + bpos2);
+    d_type = *(buf2 + bpos2 + d2->d_reclen-1);
+    if (*d2->d_name != '.'){
+      if (d_type == DT_DIR){
+        printf(YELLOW"%15s\n"DEFAULT, d2->d_name);
+      }
+      else{
+        printf(GREEN"%20s\n"DEFAULT, d2->d_name);
+      }
+
+    }
+
+    bpos2 += d2->d_reclen;
+  }
+
+  close(fd2);
+  printf("-----------\n");
 }
