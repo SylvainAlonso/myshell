@@ -10,9 +10,6 @@
 #include <dirent.h>
 
 
-#define handle_error(msg) \
-do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
 
 int c = -1;
 char * strerror(int code);
@@ -46,8 +43,8 @@ int main(int argc, char *argv[]) {
     case'h':
       printf("\nThis command remove files or directories\n\n"
              "  ----- Options -----\n" \
-             "  -r\tRemove directories and their contents recursively\n" \
-             "  -i\tPrompt before every removal\n\n");
+             "  -r, --recursive  \tRemove directories and their contents recursively\n" \
+             "  -i, --interactive\tPrompt before every removal\n\n");
       exit(EXIT_SUCCESS);
       break;
 

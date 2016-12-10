@@ -13,8 +13,7 @@
 #define YELLOW    "\033[33m"
 #define DEFAULT  "\033[0m"
 #define BUF_SIZE 1024
-#define handle_error(msg) \
-    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
 
 int c = -1;
 int fd,fc,size, size2;
@@ -30,7 +29,7 @@ char errno;
 
 void check_directory();
 
-
+char * strerror(int code);
 struct stat sb;
 
 struct linux_dirent {
@@ -56,6 +55,7 @@ int main(int argc, char *argv[]) {
   int h = 0 ;
   int fd = 0 ;
   int fd2 =0 ;
+  errno=0;
 
   while ((c = getopt_long(argc, argv, "alRh", longopts, NULL)) != -1) {
     switch (c) {
@@ -74,9 +74,9 @@ int main(int argc, char *argv[]) {
     case'h':
       printf("\nThis command list information about the files (the current directory by default)\n\n"
              "  ----- Options -----\n" \
-             "  -r\tList subdirectories recursively.\n" \
-             "  -a\tDo not hide entries starting with.\n" \
-             "  -l\tDisplay more informations about the files.\n\n");
+             "  -r, --recursive\tList subdirectories recursively.\n" \
+             "  -a, --all      \tDo not hide entries starting with.\n" \
+             "  -l, --long     \tDisplay more informations about the files.\n\n");
       exit(EXIT_SUCCESS);
       break;
 
@@ -95,19 +95,19 @@ int main(int argc, char *argv[]) {
   if ((argc - optind) == 0) {
     fd = open(".", O_RDONLY | O_DIRECTORY);
     if (fd == -1)
-      handle_error("open");
+      (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
   }
 
   fd = open(".", O_RDONLY | O_DIRECTORY);
   if (fd == -1)
-    handle_error("open");
+    (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
 
   while (1) {
 
     size = syscall(SYS_getdents, fd, buf, BUF_SIZE);
 
     if (size == -1)
-      handle_error("getdents");
+      (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
 
     if (size == 0)
       break;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
       if (*d->d_name != '.' & l == 1) {
 
         if (stat(d->d_name, &sb) == -1) {
-          perror("stat");
+          (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
           exit(EXIT_FAILURE);
         }
         char info [] = {'-','-','-','-','-','-','-','-','-','-','\0'};
@@ -195,22 +195,22 @@ void check_directory(int fd2, int size2,int bpos2) {
   fd2 = open(d->d_name, O_RDONLY | O_DIRECTORY);
 
   if (fd2 == -1)
-    handle_error("open");
+    (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
 
   size2 = syscall(SYS_getdents, fd2, buf2, BUF_SIZE);
 
   if (size2 == -1)
-    handle_error("getdents");
+    (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
 
   for (bpos2 = 0; bpos2 < size2; ) {
     d2 = (struct linux_dirent *) (buf2 + bpos2);
     d_type = *(buf2 + bpos2 + d2->d_reclen-1);
     if (*d2->d_name != '.'){
       if (d_type == DT_DIR){
-        printf(YELLOW"%15s\n"DEFAULT, d2->d_name);
+        printf(YELLOW"%s\n"DEFAULT, d2->d_name);
       }
       else{
-        printf(GREEN"%20s\n"DEFAULT, d2->d_name);
+        printf(GREEN"%s\n"DEFAULT, d2->d_name);
       }
 
     }
