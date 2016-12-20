@@ -8,7 +8,11 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#define BUF_SIZE 4096
+
+char buf[BUF_SIZE];
 char line[4096];
+int flag = 0;
 
 void show_invite(){
   char* username = getenv("USER");
@@ -16,9 +20,6 @@ void show_invite(){
 }
 
 void check_line(){
-  if (line == NULL)
-    exit(0);
-
   fgets(line, sizeof(line)-1, stdin);
 }
 
@@ -33,25 +34,35 @@ int execute_line() {
 
   if (pid < 0) {
    printf("Fork failed(%s)\n", strerror(errno));
-   return;
+   return 0;
   }
 
 
   if (pid == 0) {
+
+
     int i = 1;
     char **arguments;
     char path[50];
+
+    arguments = malloc(100 * sizeof(char*));
 
     arguments[0] = strtok(line, " ");
     while ((arguments[i] = strtok(NULL," ")) != NULL) {
       i= i+1;
     }
+    if (flag==1) {
+        arguments[i-1][strlen(arguments[i-1])-1] = '\0';
+    }
+
 
     sprintf(path, "./%s", arguments[0]);
-    execvp(path, arguments);
 
-    printf("Imposible to execute \"%s\" (%s)\n", line,strerror(errno));
-    exit(1);
+    int ret;
+    if ((ret = execvp(path, arguments)) == -1) {
+      printf("Imposible to execute \"%s\" (%s)\n", line,strerror(errno));
+      exit(1);
+    }
   }
 
   else{
@@ -85,7 +96,21 @@ int execute_line() {
 int main(int argc, char const *argv[]) {
 
   if (argc != 1) {
+    char *saveptr;
+    FILE *file;
+    char line2[4096];
 
+
+    file = fopen(argv[optind], "r");
+
+    while(fscanf(file,"%[^\n]\n",line2)!=EOF){
+      printf("\n --> %s\n", line2);
+      strcpy(line, line2);
+      flag = 1;
+      execute_line();
+    }
+
+    fclose(file);
     exit(EXIT_SUCCESS);
   }
 
