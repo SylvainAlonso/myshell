@@ -1,0 +1,5 @@
+project('mysh', 'c')
+executable('myls', 'C files/myls.c')
+executable ('mycat', 'C files/mycat.c')
+executable ('myrm', 'C files/myrm.c')
+executable ('sh07', 'C files/myshell.c')
