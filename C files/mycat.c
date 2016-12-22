@@ -5,15 +5,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
+
 
 char * strerror(int code);
-  int c = -1;
+int c = -1;
+void show();
 
-  void test();
-
+//match a long option for each short option
 struct option longopts[] = {
     {"number", no_argument, NULL, 'n'},
     {"show-ends", no_argument, NULL, 'e'},
@@ -23,13 +21,16 @@ struct option longopts[] = {
 
 int main(int argc , char *argv[]){
 
-
-
-  errno=0;
   int n = 0 ;
   int e = 0 ;
   errno=0;
+  int i=1;
+  int nbr = 1 ;
+  char *ffile, *sfile;
+  ffile= argv[optind];
 
+
+  //Check options and put the right flags
   while ((c = getopt_long(argc, argv, "neh", longopts, NULL)) != -1) {
     switch (c) {
     case 'n':
@@ -49,6 +50,7 @@ int main(int argc , char *argv[]){
       exit(EXIT_SUCCESS);
       break;
 
+    //if unknow option
     case '?':
       if (isprint (optopt))
         fprintf (stderr, "Unknown option '-%c'.\n", optopt);
@@ -62,54 +64,53 @@ int main(int argc , char *argv[]){
     }
   }
 
+  //print the first file on the standard output
+  show(ffile,n,e,&nbr);
 
-
-  char *ffile, *sfile;
-  ffile= argv[optind];
-  int i=1;
-
-
-
-  int nbr = 1 ;
-
-  test(ffile,n,e,&nbr);
-
-
+  //if there are other files: concatenate files and print on the standard output
   if ((argc-optind) > 1) {
-    for (i; i < (argc-optind); i++) {
+    for (; i < (argc-optind); i++) {
       sfile= argv[optind+i];
-      test(sfile,n,e,&nbr);
+      show(sfile,n,e,&nbr);
     }
-
   }
-
-
   return(0);
 }
 
-void test(char *f, int nbit, int ebit, int *nbr) {
+//print the content of the files
+void show(char *f, int nbit, int ebit, int *nbr) {
 
   FILE *file;
   char line[2400];
 
+  //open file and associates a stream with it
   file = fopen(f,"r");
 
+  if (file == 0)
+    (void)fprintf(stderr, "Error: %s.\n", strerror(errno));
+     exit(EXIT_FAILURE);
+     
+  // reading file line by line entering to buffer line
   while(fscanf(file,"%[^\n]\n",line)!=EOF)
   {
+    //if cat -n -e : display "&" and the number of the lines
     if (nbit == 1 && ebit == 1) {
       printf("$   %d.%s\n",*nbr, line);
       *nbr = *nbr +1;
     }
 
+    //if cat -n
     else if (nbit == 1 && ebit != 1) {
       printf("%d.%s\n",*nbr, line);
       *nbr = *nbr +1;
     }
 
+    //if cat -e
     else if (nbit !=1 && ebit == 1) {
       printf("$   %s\n", line);
     }
 
+    //if there are no options
     else{
       printf("%s\n", line);
     }
